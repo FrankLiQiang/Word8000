@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
                         mediaPlayer.start()
                     }
                 }
-                Greeting(
+                MainUI(
                     { launcher.launch("audio/*") },
                     { play() },
                     {
@@ -143,7 +143,7 @@ var isNext by mutableStateOf(false)
 var isFirstTime by mutableStateOf(true)
 
 @Composable
-fun Greeting(
+fun MainUI(
     openFile: () -> Unit,
     pause: () -> Unit,
     replay: () -> Unit,
@@ -275,7 +275,7 @@ fun TabItem(@DrawableRes iconId: Int, title: String, tint: Color, modifier: Modi
 fun GreetingPreview() {
     isFirstTime = false
     Word8001Theme {
-        Greeting({}, {}, {}, {}, {}, 0f, 100f, {})
+        MainUI({}, {}, {}, {}, {}, 0f, 100f, {})
     }
 }
 
