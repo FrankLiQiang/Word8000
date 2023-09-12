@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
                                             mediaPlayer.seekTo(time)
                                         }
                                     }
-                                } catch (e: Exception) {
+                                } catch (_: Exception) {
                                 }
                             }
                         }
@@ -100,7 +100,9 @@ class MainActivity : ComponentActivity() {
                         if (!mediaPlayer.isPlaying) play()
                     },
                     {
-                        listTime.add(mediaPlayer.currentPosition)
+                        if (listTime.size < 2) {
+                            listTime.add(mediaPlayer.currentPosition)
+                        }
                         if (listTime.size == 2) {
                             isNext = false
                             val time: Int = listTime[0]
