@@ -1,8 +1,9 @@
 package com.frank.word8001
 
-import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.media.MediaPlayer.OnCompletionListener
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,28 +46,33 @@ import java.util.Timer
 import java.util.TimerTask
 import kotlin.system.exitProcess
 
+
 private var thisTimer: Timer = Timer()
 private var thisTask: TimerTask? = null
 var playTime by mutableStateOf("")
+var isPort by mutableStateOf(true)
 private val listTime = ArrayList<Int>()
+var progress by mutableStateOf(0f)
+var maxProgress = 0f
+var isPlay by mutableStateOf(true)
+var isNext by mutableStateOf(false)
+var isFirstTime by mutableStateOf(true)
+lateinit var mediaPlayer: MediaPlayer
 
 class MainActivity : ComponentActivity() {
 
-    lateinit var mediaPlayer: MediaPlayer
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+//        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
 
-        fun getTime(allTime: Int) : String{
-            val a = allTime % 1000
-            val b = (allTime - a) / 1000
-            val c = b % 60
-            val d = (b - c) / 60
-            val e = d % 60
-            val f = (d - e) / 60
-            return "$f:$e:$c"
+        val orientation = resources.configuration.orientation
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            isPort = false
+        } else if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+            isPort = true
         }
         setContent {
+//            var playTime by rememberSaveable {mutableStateOf("")}
             val launcher = rememberLauncherForActivityResult(contract = GetContent()) { result ->
                 mediaPlayer = MediaPlayer().apply {
                     setAudioAttributes(
@@ -80,8 +87,15 @@ class MainActivity : ComponentActivity() {
                         thisTask = object : TimerTask() {
                             override fun run() {
                                 try {
+                                    maxProgress = mediaPlayer.duration.toFloat()
                                     progress = mediaPlayer.currentPosition.toFloat()
-                                    playTime = "${getTime(progress.toInt())} / ${getTime(mediaPlayer.duration)}"
+                                    if (isPort) {
+                                        playTime = "${getTime(mediaPlayer.currentPosition)}"
+                                    } else {
+                                        playTime = "${getTime(mediaPlayer.currentPosition)} / ${
+                                            getTime(mediaPlayer.duration)
+                                        }"
+                                    }
                                     if (listTime.size == 2) {
                                         if (mediaPlayer.currentPosition > listTime[1]) {
                                             val time: Int = listTime[0]
@@ -94,6 +108,10 @@ class MainActivity : ComponentActivity() {
                         }
                         thisTimer.scheduleAtFixedRate(thisTask, 0, 20)
                         setDataSource(applicationContext, result)
+                        setOnCompletionListener(OnCompletionListener { mp: MediaPlayer ->
+                            mp.seekTo(0) //循环播放
+                            mp.start()
+                        })
                         prepare()
                         start()
                     }
@@ -136,29 +154,33 @@ class MainActivity : ComponentActivity() {
                         }
                         if (!mediaPlayer.isPlaying) play()
                     },
-                    if (isFirstTime) 200.0f else mediaPlayer.duration.toFloat(),
                     {
                         if (!isFirstTime) mediaPlayer.seekTo(it.toInt())
-                    }
+                    },
                 )
             }
         }
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {//横屏
+
+        } else {//竖屏
+
+        }
+    }
+
     override fun onBackPressed() {
         super.onBackPressed()
-        if (!isFirstTime) {
-            MediaPlayer().stop()
-            MediaPlayer().release()
-        }
+//        if (!isFirstTime)
+//        {
+//            MediaPlayer().stop()
+//            MediaPlayer().release()
+//        }
         exitProcess(0)
     }
 }
-
-var progress by mutableStateOf(0f)
-var isPlay by mutableStateOf(true)
-var isNext by mutableStateOf(false)
-var isFirstTime by mutableStateOf(true)
 
 @Composable
 fun MainUI(
@@ -167,7 +189,6 @@ fun MainUI(
     replay: () -> Unit,
     previous: () -> Unit,
     next: () -> Unit,
-    maxProgress: Float,
     doSlider: (Float) -> Unit,
 ) {
 
@@ -214,51 +235,117 @@ fun MainUI(
                     }
                 }
             }
-            if (!isFirstTime) {
-                Row(
-                    modifier = Modifier
-                        .weight(1.1f, true)
-                        .fillMaxHeight()
-                ) {
-                    TabItem(
-                        R.drawable.outline_skip_previous_24, "Start",
-                        Color.LightGray,
-                        Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .fillMaxHeight()
-                            .weight(1f, true)
-                            .clickable { previous() }
+            if (isPort) {
+                if (isFirstTime) {
+                    Row(modifier = Modifier.weight(6.1f, true)) {}
+                } else {
+                    Row(modifier = Modifier.weight(0.1f, true)) {
+                    }
+                    Slider(
+                        value = progress,
+                        onValueChange = doSlider,
+                        valueRange = 0f..maxProgress,
+                        modifier = Modifier.padding(start = 5.dp, end = 5.dp)
                     )
+                    Row(modifier = Modifier.weight(1.1f, true)) {
+                    }
                     TabItem(
                         if (isPlay) R.drawable.outline_pause_circle_outline_24 else R.drawable.outline_play_circle_outline_24,
                         "Start",
                         Color.LightGray,
                         Modifier
-                            .weight(1f)
+                            .weight(2f, true)
                             .fillMaxWidth()
                             .fillMaxHeight()
-                            .weight(1f, true)
+                            .weight(2f, true)
                             .clickable { pause() }
                     )
-                    TabItem(
-                        R.drawable.outline_skip_next_24, "End",
-                        Color.LightGray,
+                    Row(
                         Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                            .background(Color.White)
+                            .height(1.dp)
+                            .fillMaxWidth()) {}
+                    Row(
+                        modifier = Modifier
+                            .weight(1.1f, true)
                             .fillMaxHeight()
-                            .weight(1f, true)
-                            .clickable { next() }
-                            .background(if (isNext) Color.Blue else Color.Black)
+                    ) {
+                        TabItem(
+                            R.drawable.outline_skip_previous_24, "Start",
+                            Color.LightGray,
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .weight(1f, true)
+                                .clickable { previous() }
+                        )
+                        Row(
+                            Modifier
+                                .background(Color.White)
+                                .width(1.dp)
+                                .fillMaxHeight()) {}
+                        TabItem(
+                            R.drawable.outline_skip_next_24, "End",
+                            Color.LightGray,
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .weight(1f, true)
+                                .clickable { next() }
+                                //.background(if (isNext) Color(0xFFFFB6C5FF) else Color.Black)
+                                .background(if (isNext) Color.Blue else Color.Black)
+                        )
+                    }
+                }
+            } else {
+                if (!isFirstTime) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1.1f, true)
+                            .fillMaxHeight()
+                    ) {
+                        TabItem(
+                            R.drawable.outline_skip_previous_24, "Start",
+                            Color.LightGray,
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .weight(1f, true)
+                                .clickable { previous() }
+                        )
+                        TabItem(
+                            if (isPlay) R.drawable.outline_pause_circle_outline_24 else R.drawable.outline_play_circle_outline_24,
+                            "Start",
+                            Color.LightGray,
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .weight(1f, true)
+                                .clickable { pause() }
+                        )
+                        TabItem(
+                            R.drawable.outline_skip_next_24, "End",
+                            Color.LightGray,
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .weight(1f, true)
+                                .clickable { next() }
+                                .background(if (isNext) Color.Blue else Color.Black)
+                        )
+                    }
+                    Slider(
+                        value = progress,
+                        onValueChange = doSlider,
+                        valueRange = 0f..maxProgress,
+                        modifier = Modifier.padding(start = 5.dp, end = 5.dp)
                     )
                 }
-                Slider(
-                    value = progress,
-                    onValueChange = doSlider,
-                    valueRange = 0f..maxProgress,
-                    modifier = Modifier.padding(start = 5.dp, end = 5.dp)
-                )
             }
         }
     }
@@ -287,7 +374,16 @@ fun TabItem(@DrawableRes iconId: Int, title: String, tint: Color, modifier: Modi
 fun GreetingPreview() {
     isFirstTime = false
     Word8001Theme {
-        MainUI({}, {}, {}, {}, {}, 0f, {})
+        MainUI({}, {}, {}, {}, {}, {})
     }
 }
 
+fun getTime(allTime: Int): String {
+    val a = allTime % 1000
+    val b = (allTime - a) / 1000
+    val c = b % 60
+    val d = (b - c) / 60
+    val e = d % 60
+    val f = (d - e) / 60
+    return "$f:$e:$c"
+}
